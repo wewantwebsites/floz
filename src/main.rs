@@ -1,42 +1,43 @@
+use rocket::fs::FileServer;
+use rocket::http::Method;
+use rocket_cors::{AllowedOrigins, CorsOptions};
+use rocket_db_pools::Database;
+
 #[macro_use]
 extern crate rocket;
 
-use rocket::serde::{json::Json, Deserialize, Serialize};
-use rocket_db_pools::sqlx::{self, Row};
-use rocket_db_pools::{Connection, Database};
-
-#[derive(Database)]
-#[database("floz")]
-struct Db(sqlx::SqlitePool);
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(crate = "rocket::serde")]
-struct Question {
-    question_id: Option<i64>,
-    question_text: String,
-}
-
-#[get("/question/<id>")]
-async fn read(mut db: Connection<Db>, id: i64) -> Option<Json<Question>> {
-    println!("Fetching question with id: {}", id);
-    sqlx::query("SELECT * FROM questions WHERE question_id = ?")
-        .bind(id)
-        .fetch_one(&mut **db)
-        .await
-        .map(|row| {
-            let question_id = row.try_get("question_id").ok();
-            let question_text = row.try_get("question_text").ok().unwrap_or_default();
-            Json(Question {
-                question_id,
-                question_text,
-            })
-        })
-        .ok()
-}
+mod db;
+mod question;
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build()
-        .attach(Db::init())
-        .mount("/api", routes![read])
+    let args: Vec<String> = std::env::args().collect();
+
+    let mut cors = CorsOptions::default()
+        .allowed_methods(
+            vec![Method::Get, Method::Post, Method::Patch, Method::Delete]
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        )
+        .allow_credentials(true);
+
+    let r = rocket::build()
+        .mount("/", FileServer::from("./static"))
+        .attach(db::Db::init())
+        .attach(question::stage());
+
+    if args.len() > 1 && args[1] == "--dev" {
+        println!("Running in dev mode");
+        cors = cors.allowed_origins(AllowedOrigins::all());
+    } else {
+        println!("Running with strict cross origin policy");
+        cors = cors.allowed_origins(AllowedOrigins::some(
+            &["http://localhost:8000"],
+            &["http://127.0.0.1:8000"],
+        ));
+    }
+    println!("CORS enabled");
+
+    r.attach(cors.to_cors().unwrap())
 }
