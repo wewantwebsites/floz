@@ -4,6 +4,14 @@ This documentation is for common commands and queries ran against the database. 
 
 ## Queries
 
+```sql
+SELECT q.question_text, wq.question_type, wq.sequence
+FROM WorkflowQuestions wq
+JOIN Questions q
+ON wq.question_id = q.question_id
+ORDER BY wq.sequence;
+```
+
 ### Get All Questions in a Specific Workflow
 
 ```sql

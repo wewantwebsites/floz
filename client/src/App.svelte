@@ -1,63 +1,88 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg';
-  import viteLogo from '/vite.svg';
+  import * as Card from './lib/components/ui/card/index';
+  import * as Accordion from './lib/components/ui/accordion/index';
+  import { Input } from './lib/components/ui/input/index';
+  import { Label } from './lib/components/ui/label/index';
+  import { Button } from './lib/components/ui/button/index';
+  import { Separator } from './lib/components/ui/separator/index';
+  import './app.css';
 
-  let questions = $state([]);
+  let questions = $state<Question[]>([]);
+  type QuestionDto = {
+    question_id: number;
+    question_text: string;
+  };
+  type Question = {
+    id: number;
+    questionText: string;
+  };
+  const mapQuestions = (question: QuestionDto) => {
+    return {
+      id: question.question_id,
+      questionText: question.question_text,
+    } as Question;
+  };
   async function getQuestions() {
     const response = await fetch('http://localhost:8000/api/question');
     const data = await response.json();
-    console.log(data);
-    questions = data;
+    questions = data.map(mapQuestions);
   }
 </script>
 
-<main>
-  <div>
-    <a href="https://vite.dev" target="_blank" rel="noreferrer">
-      <img src={viteLogo} class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
-  <h1>Vite + Svelte</h1>
-
-  <div class="card">
-    <button onclick={getQuestions}>Get Questions</button>
-    <ul>
-      {#each questions as question}
-        {#each Object.keys(question) as key}
-          <li>{key}: {question[key]}</li>
+<main class="container mx-auto pt-5 max-w-[80%]">
+  <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl">
+    Questions API
+  </h1>
+  <Separator class="mb-5" />
+  <Card.Root class="mb-5">
+    <Card.Content>
+      <Button onclick={getQuestions}>Get Questions</Button>
+      <Accordion.Root type="single" class="w-full sm:max-w-[70%]">
+        {#each questions as question}
+          <Accordion.Item value={question.id}>
+            <Accordion.Trigger>{question.questionText}</Accordion.Trigger>
+            <Accordion.Content>{question.questionText}</Accordion.Content>
+          </Accordion.Item>
         {/each}
-      {/each}
-    </ul>
-  </div>
+      </Accordion.Root>
+    </Card.Content>
+  </Card.Root>
 
-  <p>
-    Check out <a
-      href="https://github.com/sveltejs/kit#readme"
-      target="_blank"
-      rel="noreferrer">SvelteKit</a
-    >, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">Click on the Vite and Svelte logos to learn more</p>
+  <Card.Root class="mb-5">
+    <Card.Header>
+      <Card.Title>Post a Question</Card.Title>
+    </Card.Header>
+    <Card.Content>
+      <form
+        onsubmit={async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const formData = new FormData(event.target as HTMLFormElement);
+          const questionText = formData.get('question') as string;
+          const response = await fetch('http://localhost:8000/api/question', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question_text: questionText }),
+          });
+          if (response.ok) {
+            // @ts-ignore
+            document.getElementById('question').value = '';
+            const question = await response.json();
+            questions = [...questions, mapQuestions(question)];
+          }
+        }}
+        class="flex flex-col items-center justify-evenly"
+      >
+        <Label for="question" class="font-bold text-lg mb-2 ">
+          What is the question text?
+        </Label>
+        <div class="flex space-x-2">
+          <Input type="text" id="question" name="question" required />
+          <Button type="submit">Submit</Button>
+        </div>
+      </form>
+    </Card.Content>
+  </Card.Root>
 </main>
-
-<style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
-  }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
-  }
-  .read-the-docs {
-    color: #888;
-  }
-</style>
