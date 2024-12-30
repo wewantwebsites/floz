@@ -1,11 +1,12 @@
 build-ui:
   cd client && pnpm build
 
-run-ui:
+dev-ui:
   cd client && pnpm dev
 
-run-api:
+dev-api:
   cargo run -- --dev
 
 run-app:
+  cd client && pnpm build
   cargo run
